@@ -58,6 +58,10 @@ WantedBy=timers.target
 # sudo systemctl status stream_game_tunnel_ws.service
 # sudo systemctl stop stream_game_tunnel_ws.service
 # sudo systemctl restart stream_game_tunnel_ws.service
+# 
+# sudo systemctl enable stream_game_tunnel_ws.timer
+# sudo systemctl start stream_game_tunnel_ws.timer
+#
 # sudo systemctl list-timers | grep stream_game_tunnel_ws
 
 
