@@ -70,7 +70,7 @@ LISTENER_UDP_IP = "0.0.0.0"
 # Uncomment below to only allow the app on the Raspberry Pi
 # LISTENER_UDP_IP = "127.0.0.1"
 LISTENER_UDP_PORT = 3615
-SERVER_WS_PORT = 6777
+SERVER_WS_PORT = 444
 
 bool_use_debug_print = True
 
