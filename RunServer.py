@@ -4,6 +4,7 @@
 
 
 import asyncio
+import struct
 import websockets
 import socket
 import requests
@@ -12,6 +13,7 @@ import time
 from web3 import Web3
 import secrets
 from eth_account.messages import encode_defunct
+import tornado
 
 
 ## python /git/stream_game_tunnel_ws/RunServer.py
@@ -65,11 +67,31 @@ WantedBy=timers.target
 # sudo systemctl list-timers | grep stream_game_tunnel_ws
 
 
+"""
+sudo systemctl stop stream_game_tunnel_ws.service
+sudo systemctl stop stream_game_tunnel_ws.timer
+"""
+
+"""
+sudo systemctl restart stream_game_tunnel_ws.service
+sudo systemctl restart stream_game_tunnel_ws.timer
+
+"""
+"""
+sudo systemctl list-timers | grep stream_game_tunnel_ws
+
+"""
+
 # Listen to any incoming UDP messages
 LISTENER_UDP_IP = "0.0.0.0"
 # Uncomment below to only allow the app on the Raspberry Pi
 # LISTENER_UDP_IP = "127.0.0.1"
 LISTENER_UDP_PORT = 3615
+
+
+LISTENER_WEBSOCKET_PORT = 3617
+bool_use_echo = True
+
 SERVER_WS_PORT = 444
 
 bool_use_debug_print = True
@@ -83,6 +105,33 @@ def debug_print(message):
     if bool_use_debug_print:
         print(message)
     
+
+
+async def public_websocket_listener():
+    """Listens for incoming WebSocket connections and relays messages to clients."""
+    while True:
+        try:
+            async def echo(websocket, path):
+                try:
+                    async for message in websocket:
+                        int_length = len(message)
+                        if int_length in {4, 8, 12, 16}:
+                            await relay_to_clients(message)
+                            if bool_use_echo:
+                                    byte_message : bytes =message
+                                    await websocket.send(byte_message)   
+                        else:
+                            await websocket.send("Only messages of 4, 8, 12, or 16 characters are allowed")
+                            await websocket.close()
+                except Exception as e:
+                    debug_print(f"Error in echo handler: {e}")
+
+            server = await websockets.serve(echo, "0.0.0.0", LISTENER_WEBSOCKET_PORT)
+            await server.wait_closed()
+        except Exception as e:
+            debug_print(f"Error in public_websocket_listener: {e}")
+        await asyncio.sleep(4)  # Wait 4 seconds before trying again
+
 
 async def udp_listener():
     
@@ -135,9 +184,28 @@ def is_message_signed_from_params(message, address, signature):
     recovered_address = w3.eth.account.recover_message(encoded_message, signature=signature)
     return recovered_address.lower() == address.lower()
 
+bool_refuse_message_over_16_bytes=True
 
+def debug_data_as_iid(data):
+    if len(data) == 4:
+        integer = struct.unpack("<i", data)[0]
+        debug_print(f"Received IID: {integer}")
+    elif len(data) == 8:
+        index, integer = struct.unpack("<ii", data)
+        debug_print(f"Received IID: {index} - {integer}")
+    elif len(data) == 12:
+        integer, timestamp = struct.unpack("<iQ", data)
+        debug_print(f"Received IID:  {integer} - {timestamp}")
+    elif len(data) == 16:
+        index, integer, timestamp= struct.unpack("<iiQ", data)
+        debug_print(f"Received IID: {index} - {integer} - {timestamp} ")
 
 async def relay_to_clients(data):
+    if data is None or len(data) == 0:
+        return
+    if bool_refuse_message_over_16_bytes and len(data) > 16:
+        debug_print(f"Message too long: {len(data)} bytes")
+        return
     """Relays the given data to all connected WebSocket clients."""
     if not clients:
         debug_print("No clients connected to relay data.")
@@ -148,7 +216,9 @@ async def relay_to_clients(data):
         try:
             if client and not client.closed:
                 await client.send(data)
-                debug_print(f"Sent {len(data)} bytes to client.")
+
+                debug_data_as_iid(data)
+                debug_print(f"Sent {len(data)} bytes to client: {data}")
             else:
                 disconnected_clients.add(client)
         except Exception as e:
@@ -164,7 +234,7 @@ async def ws_handler(websocket, path):
     """Handles new WebSocket connections, handshakes, and messages."""
     clients.add(websocket)
     debug_print(f"New WebSocket client connected: {websocket.remote_address}")
-    
+
     bool_signed_received_and_validate = False
     try:
         # Send handshake GUID to the client
@@ -214,9 +284,10 @@ async def main():
     """Main function to start UDP listener and WebSocket server."""
     try:
         udp_task = asyncio.create_task(udp_listener())
+        ws_public_task = asyncio.create_task(public_websocket_listener())
         ws_server = await websockets.serve(ws_handler, "0.0.0.0", SERVER_WS_PORT)
         debug_print(f"WebSocket server running on ws://{get_public_ip()}:{SERVER_WS_PORT}")
-        await asyncio.gather(udp_task, ws_server.wait_closed())
+        await asyncio.gather(udp_task,ws_public_task, ws_server.wait_closed())
     except Exception as e:
         debug_print(f"Main Error: {e}")
 
