@@ -16,15 +16,23 @@ bool_display_udp_broadcast=True
 private_key_path = "private_key.txt"
 
 # uri =["ws://193.150.14.47:6777" ,"ws://81.240.94.97:433"]
-uri= "ws://193.150.14.47:6777"
-uri= "ws://81.240.94.97:433"
+uri= "ws://81.240.94.97:444"
+uri= "ws://193.150.14.47:444"
 
 
+LOCAL_PORT =[3615,7000,7073]
 
 for i in range(1, len(sys.argv)):
     if sys.argv[i].startswith("ws://"):
         uri = sys.argv[i]
+    try:
+        int_value = int(sys.argv[i])
+        if int_value > 0 and int_value < 65535:
+            LOCAL_PORT.append(int_value)
+    except:
+        pass
 
+print(f"Connecting to server at {uri}")
 
 # check if file exists
 if not os.path.exists(private_key_path):
@@ -39,7 +47,6 @@ with open(private_key_path, "r") as file:
     print(f"Private key read from file: {PRIVATE_KEY_ETH[5:]}")
 
 
-LOCAL_PORT =[3615,7000]
 
 
 ENQUEUE_INTEGER_TO_DIFFUSE = list()
@@ -55,10 +62,11 @@ async def stack_bytes_array_to_diffuse(bytes_array):
 
 
 async def diffuse_received_bytes(data):
-    print(f"Received bytes: {data}")
+    global LOCAL_PORT
     for PORT in LOCAL_PORT:
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use SOCK_DGRAM for UDP
+            #s.bind(('localhost', 0))  # Bind to an available port
             s.sendto(data, ('localhost', PORT))
             print(f"Sent bytes to local server on port {PORT}")
             s.close()
@@ -90,10 +98,11 @@ async def connect_to_server(uri):
                         if bool_display_udp_broadcast:
                             print (f"Received Byte{len(response)}: {response}")
                             
-                        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use SOCK_DGRAM for UDP
-                        sock.sendto(response, ('127.0.0.1', 3615))
-                        sock.close()
-                    
+                        # sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use SOCK_DGRAM for UDP
+                        # sock.sendto(response, ('127.0.0.1', 3615))
+                        # sock.close()
+                        await diffuse_received_bytes(response)
+
                     # Handle text responses from the server
                     else:
                         print(f"Received text from server: {response}")

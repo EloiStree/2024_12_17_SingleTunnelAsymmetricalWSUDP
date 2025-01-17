@@ -1,0 +1,1 @@
+python game_client_to_server.py ws://193.150.14.47:444
