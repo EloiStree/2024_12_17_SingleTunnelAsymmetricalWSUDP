@@ -77,10 +77,12 @@ sudo systemctl restart stream_game_tunnel_ws.service
 sudo systemctl restart stream_game_tunnel_ws.timer
 
 """
-"""
-sudo systemctl list-timers | grep stream_game_tunnel_ws
 
 """
+sudo systemctl list-timers | grep stream_game_tunnel_ws
+"""
+
+
 
 # Listen to any incoming UDP messages
 LISTENER_UDP_IP = "0.0.0.0"
@@ -94,21 +96,27 @@ bool_use_echo = True
 
 SERVER_WS_PORT = 444
 
-bool_use_debug_print = True
+bool_use_debug_print = False
 
 
 allowed_public_addressses=["0x1Be31A94361a391bBaFB2a4CCd704F57dc04d4bb"]
 
 clients = set()
 
+
+
+
 def debug_print(message):
     if bool_use_debug_print:
         print(message)
-    
+
+if bool_use_debug_print:
+    print("PRINT IS DISABLE DON4T EXPECT PRINT.")
 
 
 async def public_websocket_listener():
     """Listens for incoming WebSocket connections and relays messages to clients."""
+    print("Starting public Websocket Listener ", LISTENER_WEBSOCKET_PORT) 
     while True:
         try:
             async def echo(websocket, path):
@@ -134,7 +142,8 @@ async def public_websocket_listener():
 
 
 async def udp_listener():
-    
+
+    print("Starting UDP Listener ", LISTENER_UDP_PORT)       
     while True:
         """Listens for incoming UDP messages and relays them to WebSocket clients."""
         # debug_print(f"Starting UDP listener on {LISTENER_UDP_IP}:{LISTENER_UDP_PORT}")
