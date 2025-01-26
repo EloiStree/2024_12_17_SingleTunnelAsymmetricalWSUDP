@@ -5,7 +5,9 @@ from eth_account.messages import encode_defunct
 import websockets
 import socket
 import os
+import ssl
 import sys
+import traceback
 
 # Look Like this 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdek
 PRIVATE_KEY_ETH = ""
@@ -16,14 +18,32 @@ bool_display_udp_broadcast=True
 private_key_path = "private_key.txt"
 
 # uri =["ws://193.150.14.47:6777" ,"ws://81.240.94.97:433"]
-uri= "ws://81.240.94.97:444"
-uri= "ws://193.150.14.47:444"
+uri= "wss://apint.ddns.net:443"
+uri= "wss://81.240.94.97:444"
+uri= "wss://193.150.14.47:8765"
+
+
+certification_file_path = os.path.join(os.path.dirname(__file__), "ssl_cert.pem")
+ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+ssl_context.check_hostname = False
+ssl_context.load_verify_locations(certification_file_path) 
+
+
+
+print (f"SSL certification file path: {certification_file_path}")
+# read text file
+string_certif_in_file = ""
+
+with open(certification_file_path, "r") as file:
+    string_certif_in_file = file.read()
+
+print(f"Certification in file: {string_certif_in_file}")
 
 
 LOCAL_PORT =[3615,7000,7073]
 
 for i in range(1, len(sys.argv)):
-    if sys.argv[i].startswith("ws://"):
+    if sys.argv[i].startswith("wss://"):
         uri = sys.argv[i]
     try:
         int_value = int(sys.argv[i])
@@ -87,9 +107,10 @@ async def sign_message_with_ethereum(message_to_sign: str):
     return f"{message_to_sign}|{address}|{signe_message_as_hex}"
 
 async def connect_to_server(uri):
+    global ssl_context
     while True:
         try:
-            async with websockets.connect(uri) as websocket:
+            async with websockets.connect(uri,ssl=ssl_context) as websocket:
                 while True:
                     response = await websocket.recv()
 
@@ -120,6 +141,9 @@ async def connect_to_server(uri):
         except websockets.exceptions.ConnectionClosedError  as e:
 
             print(f"Connection closed, retrying in 5 seconds... {e}")
+            # print exeception log
+            traceback.print_exc()
+            
             await asyncio.sleep(5)
 
         except Exception as e:
