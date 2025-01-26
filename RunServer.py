@@ -7,6 +7,7 @@ import asyncio
 import struct
 import websockets
 import socket
+import ssl
 import requests
 import uuid
 import time
@@ -84,27 +85,56 @@ sudo systemctl list-timers | grep stream_game_tunnel_ws
 
 
 
+# openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem
+path_ssh_certificat="/token/ssl_cert.pem"
+path_ssh_private_key="/token/ssl_key.pem"
+
+
+ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+ssl_context.load_cert_chain(certfile=path_ssh_certificat, keyfile=path_ssh_private_key)
+
+# read and display part of the certificat for debug
+with open(path_ssh_certificat, "r") as file:
+    data = file.read()
+    print(data[:50])
+
+# read and display part of the private key for debug
+with open(path_ssh_private_key, "r") as file:
+    data = file.read()
+    print(data[:50])
+
 # Listen to any incoming UDP messages
 LISTENER_UDP_IP = "0.0.0.0"
 # Uncomment below to only allow the app on the Raspberry Pi
 # LISTENER_UDP_IP = "127.0.0.1"
 LISTENER_UDP_PORT = 3615
-
-
 LISTENER_WEBSOCKET_PORT = 3617
 bool_use_echo = True
 
-SERVER_WS_PORT = 444
+SERVER_WS_PORT = 8765
 
 bool_use_debug_print = False
+
+# openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes \
+# -subj "/CN=193.150.14.47"
+
+#  https://193.150.14.47
+websocket_server_ip="0.0.0.0"
+websocket_server_ip="wss://193.150.14.47:8765"
+websocket_server_ip="193.150.14.47"
+# IF SSL YOUR DOMAIn
+
+# sudo netstat -tuln | grep 8765
+# sudo ufw allow 8765/tcp
+# sudo ufw status
+# openssl s_client -connect 193.150.14.47:8765
+
 
 
 allowed_public_addressses=["0x1Be31A94361a391bBaFB2a4CCd704F57dc04d4bb"]
 
 clients = set()
-
-
-
+only_negative_index_allowed=True
 
 def debug_print(message):
     if bool_use_debug_print:
@@ -134,7 +164,7 @@ async def public_websocket_listener():
                 except Exception as e:
                     debug_print(f"Error in echo handler: {e}")
 
-            server = await websockets.serve(echo, "0.0.0.0", LISTENER_WEBSOCKET_PORT)
+            server = await websockets.serve(echo, websocket_server_ip, LISTENER_WEBSOCKET_PORT,ssl=ssl_context)
             await server.wait_closed()
         except Exception as e:
             debug_print(f"Error in public_websocket_listener: {e}")
@@ -208,6 +238,21 @@ def debug_data_as_iid(data):
     elif len(data) == 16:
         index, integer, timestamp= struct.unpack("<iiQ", data)
         debug_print(f"Received IID: {index} - {integer} - {timestamp} ")
+        
+        
+def only_guest_id(data):
+    if len(data) == 8:
+        index, integer = struct.unpack("<ii", data)
+        if integer < 0:
+            return data
+        else:
+            return struct.pack("<ii", -index, integer)
+    elif len(data) == 16:
+        index, integer, timestamp= struct.unpack("<iiQ", data)
+        if integer < 0:
+            return data
+        else:
+            return struct.pack("<iiQ", -index, integer, timestamp)
 
 async def relay_to_clients(data):
     if data is None or len(data) == 0:
@@ -219,6 +264,9 @@ async def relay_to_clients(data):
     if not clients:
         debug_print("No clients connected to relay data.")
         return
+    
+    if only_negative_index_allowed:
+        data=only_guest_id(data)
     
     disconnected_clients = set()
     for client in clients:
@@ -294,7 +342,7 @@ async def main():
     try:
         udp_task = asyncio.create_task(udp_listener())
         ws_public_task = asyncio.create_task(public_websocket_listener())
-        ws_server = await websockets.serve(ws_handler, "0.0.0.0", SERVER_WS_PORT)
+        ws_server = await websockets.serve(ws_handler, websocket_server_ip, SERVER_WS_PORT,ssl=ssl_context)
         debug_print(f"WebSocket server running on ws://{get_public_ip()}:{SERVER_WS_PORT}")
         await asyncio.gather(udp_task,ws_public_task, ws_server.wait_closed())
     except Exception as e:
@@ -313,5 +361,5 @@ if __name__ == "__main__":
     public_ip = get_public_ip()
     debug_print(f"Device Public IP: {public_ip}")
     debug_print(f"Starting UDP listener on {LISTENER_UDP_IP}:{LISTENER_UDP_PORT}")
-    debug_print(f"Starting WebSocket server on ws://{public_ip}:{SERVER_WS_PORT}")
+    debug_print(f"Starting WebSocket server on wss://{public_ip}:{SERVER_WS_PORT}")
     asyncio.run(main())
