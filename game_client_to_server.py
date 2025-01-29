@@ -22,11 +22,28 @@ uri= "wss://apint.ddns.net:443"
 uri= "wss://81.240.94.97:444"
 uri= "wss://193.150.14.47:8765"
 
+"""
+cd /token/
+# VERSION WITH IP DOMAIN  
+openssl req -x509 -newkey rsa:2048 -keyout ssl_key.pem -out ssl_cert.pem -days 36500 -nodes -subj "/CN=193.150.14.47"
+# VERSION WHERE YOU COMPLETE INFO
+# (NOT TESTED ON SECURE NETWORK YET.)
+openssl req -x509 -newkey rsa:2048 -keyout ssl_key.pem -out ssl_cert.pem -days 36500 -nodes -subj "/C=BE/ST=LIEGE/L=LIEGE/O=DEVELOPER/OU=ELOISTREE/CN=193.150.14.47"
+openssl pkcs12 -export -out ssl_window.pfx -inkey ssl_key.pem -in ssl_cert.pem -passout pass:HelloWorld
+openssl pkcs12 -info -in ssl_window.pfx -passin pass:HelloWorld
+"""
 
-certification_file_path = os.path.join(os.path.dirname(__file__), "ssl_cert.pem")
-ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-ssl_context.check_hostname = False
-ssl_context.load_verify_locations(certification_file_path) 
+bool_require_ssl_certification = True
+if bool_require_ssl_certification:
+    certification_file_path = os.path.join(os.path.dirname(__file__), "ssl_cert.pem")
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context.check_hostname = False
+    ssl_context.load_verify_locations(certification_file_path) 
+else: 
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
 
 
 
