@@ -125,6 +125,7 @@ bool_use_wss = True
 #  https://193.150.14.47
 websocket_server_ip_wss="wss://193.150.14.47:8765"
 websocket_server_ip_wss="193.150.14.47"
+websocket_server_ip_wss="0.0.0.0"
 # IF SSL YOUR DOMAIn
 
 # sudo netstat -tuln | grep 8765
@@ -156,6 +157,7 @@ async def public_websocket_listener(listener_port ,ssl_given_context):
     while True:
         try:
             async def echo(websocket, path):
+                print (f"New WebSocket client connected: {websocket.remote_address} {path} ")
                 try:
                     async for message in websocket:
                         int_length = len(message)
@@ -164,9 +166,9 @@ async def public_websocket_listener(listener_port ,ssl_given_context):
                             if bool_use_echo:
                                     byte_message : bytes =message
                                     await websocket.send(byte_message)   
-                        else:
-                            await websocket.send("Only messages of 4, 8, 12, or 16 characters are allowed")
-                            await websocket.close()
+                        # else:
+                        #     await websocket.send("Only messages of 4, 8, 12, or 16 characters are allowed")
+                        #     await websocket.close()
                 except Exception as e:
                     debug_print(f"Error in echo handler: {e}")
             if ssl_given_context:
@@ -330,10 +332,13 @@ async def ws_handler(websocket, path):
                 else:
                     debug_print(f"Invalid SIGNED message from client: {message}")
             else:
+                if len(message) == 4 and message[0]=="p" and message[1]=="i" and message[2]=="n" and message[3]=="g":                    
+                    await websocket.send("pong")
+                    continue
                 debug_print(f"Unknown message from client: {message}")
                 if bool_signed_received_and_validate:
                     debug_print(f"KICK: {message}")
-                    await websocket.send(f"When signed, any other messaeg lead to kick")
+                    await websocket.send(f"Server don't allows message accept IID and SignIn. You have been kick out.")
                     await websocket.close()
            
     
