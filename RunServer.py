@@ -83,15 +83,15 @@ sudo systemctl restart stream_game_tunnel_ws.timer
 sudo systemctl list-timers | grep stream_game_tunnel_ws
 """
 
-
-
 # openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem
 path_ssh_certificat="/token/ssl_cert.pem"
 path_ssh_private_key="/token/ssl_key.pem"
+path_ssh_pfx="/token/ssl_window.pfx"
 
 
 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ssl_context.load_cert_chain(certfile=path_ssh_certificat, keyfile=path_ssh_private_key)
+
 
 # read and display part of the certificat for debug
 with open(path_ssh_certificat, "r") as file:
@@ -108,20 +108,23 @@ LISTENER_UDP_IP = "0.0.0.0"
 # Uncomment below to only allow the app on the Raspberry Pi
 # LISTENER_UDP_IP = "127.0.0.1"
 LISTENER_UDP_PORT = 3615
-LISTENER_WEBSOCKET_PORT = 3617
+LISTENER_WEBSOCKET_PORT_WS = 3617
+LISTENER_WEBSOCKET_PORT_WSS = 3717
 bool_use_echo = True
 
 SERVER_WS_PORT = 8765
 
-bool_use_debug_print = False
+bool_use_debug_print = True
 
 # openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes \
 # -subj "/CN=193.150.14.47"
 
+websocket_server_ip_ws="0.0.0.0"
+
+bool_use_wss = True
 #  https://193.150.14.47
-websocket_server_ip="0.0.0.0"
-websocket_server_ip="wss://193.150.14.47:8765"
-websocket_server_ip="193.150.14.47"
+websocket_server_ip_wss="wss://193.150.14.47:8765"
+websocket_server_ip_wss="193.150.14.47"
 # IF SSL YOUR DOMAIn
 
 # sudo netstat -tuln | grep 8765
@@ -144,9 +147,12 @@ if bool_use_debug_print:
     print("PRINT IS DISABLE DON4T EXPECT PRINT.")
 
 
-async def public_websocket_listener():
+async def public_websocket_listener(listener_port ,ssl_given_context):
     """Listens for incoming WebSocket connections and relays messages to clients."""
-    print("Starting public Websocket Listener ", LISTENER_WEBSOCKET_PORT) 
+    if ssl_given_context:   
+        print(f"URL:", f"wss://{get_public_ip()}:{listener_port}")
+    else:
+        print(f"URL:", f"ws://{get_public_ip()}:{listener_port}")
     while True:
         try:
             async def echo(websocket, path):
@@ -163,8 +169,10 @@ async def public_websocket_listener():
                             await websocket.close()
                 except Exception as e:
                     debug_print(f"Error in echo handler: {e}")
-
-            server = await websockets.serve(echo, websocket_server_ip, LISTENER_WEBSOCKET_PORT,ssl=ssl_context)
+            if ssl_given_context:
+                server = await websockets.serve(echo, websocket_server_ip_wss, listener_port,ssl=ssl_given_context)
+            else:
+                server = await websockets.serve(echo, websocket_server_ip_ws, listener_port)
             await server.wait_closed()
         except Exception as e:
             debug_print(f"Error in public_websocket_listener: {e}")
@@ -341,10 +349,14 @@ async def main():
     """Main function to start UDP listener and WebSocket server."""
     try:
         udp_task = asyncio.create_task(udp_listener())
-        ws_public_task = asyncio.create_task(public_websocket_listener())
-        ws_server = await websockets.serve(ws_handler, websocket_server_ip, SERVER_WS_PORT,ssl=ssl_context)
+        
+        ws_public_task = asyncio.create_task(public_websocket_listener(listener_port=LISTENER_WEBSOCKET_PORT_WS , ssl_given_context =None))
+        if bool_use_wss:
+            wss_public_task = asyncio.create_task(public_websocket_listener(listener_port=LISTENER_WEBSOCKET_PORT_WSS ,ssl_given_context= ssl_context))
+        ws_server = await websockets.serve(ws_handler, websocket_server_ip_wss, SERVER_WS_PORT,ssl=ssl_context)
+        
         debug_print(f"WebSocket server running on ws://{get_public_ip()}:{SERVER_WS_PORT}")
-        await asyncio.gather(udp_task,ws_public_task, ws_server.wait_closed())
+        await asyncio.gather(udp_task,ws_public_task,wss_public_task, ws_server.wait_closed())
     except Exception as e:
         debug_print(f"Main Error: {e}")
 
@@ -356,7 +368,7 @@ def get_public_ip():
     except Exception as e:
         print(f"Error fetching public IP: {e}")
         return "Unavailable"
-
+    
 if __name__ == "__main__":
     public_ip = get_public_ip()
     debug_print(f"Device Public IP: {public_ip}")
