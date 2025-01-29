@@ -1,1 +1,1 @@
-python game_client_to_server.py ws://apint.ddns.net:444
+python game_client_to_server.py ws://raspberrypi5.local:444
