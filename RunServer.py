@@ -113,7 +113,6 @@ LISTENER_WEBSOCKET_PORT_WSS = 3717
 bool_use_echo = True
 
 SERVER_WS_PORT = 8765
-
 bool_use_debug_print = True
 
 # openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes \
