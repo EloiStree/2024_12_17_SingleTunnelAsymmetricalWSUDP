@@ -171,9 +171,16 @@ async def public_websocket_listener(listener_port ,ssl_given_context):
                 except Exception as e:
                     debug_print(f"Error in echo handler: {e}")
             if ssl_given_context:
-                server = await websockets.serve(echo, websocket_server_ip_wss, listener_port,ssl=ssl_given_context)
+                server = await websockets.serve(echo, websocket_server_ip_wss, listener_port,ssl=ssl_given_context
+                                                ,
+                    ping_interval=20,  # Optional: Send a ping every 20 seconds
+                    ping_timeout=300,   # Optional: Wait 40 seconds for a pong before closing
+                )
             else:
-                server = await websockets.serve(echo, websocket_server_ip_ws, listener_port)
+                server = await websockets.serve(echo, websocket_server_ip_ws, listener_port,
+                    ping_interval=20,  # Optional: Send a ping every 20 seconds
+                    ping_timeout=300,   # Optional: Wait 40 seconds for a pong before closing
+                )
             await server.wait_closed()
         except Exception as e:
             debug_print(f"Error in public_websocket_listener: {e}")
@@ -201,7 +208,7 @@ class UDPServerProtocol:
         self.transport = transport
     def datagram_received(self, data, addr):
         debug_print(f"Received {len(data)} bytes from {addr}")
-        asyncio.create_task(relay_to_clients(data))
+        asyncio.create_task(relay_to_clients(data)) 
     def connection_lost(self, exc):
         debug_print("UDP connection closed.")
 
@@ -237,30 +244,32 @@ bool_refuse_message_over_16_bytes=True
 def debug_data_as_iid(data):
     if len(data) == 4:
         integer = struct.unpack("<i", data)[0]
-        debug_print(f"Received IID: {integer}")
+        debug_print(f"Received IID i : {integer}")
     elif len(data) == 8:
         index, integer = struct.unpack("<ii", data)
-        debug_print(f"Received IID: {index} - {integer}")
+        debug_print(f"Received IID ii : {index} - {integer}")
     elif len(data) == 12:
         integer, timestamp = struct.unpack("<iQ", data)
-        debug_print(f"Received IID:  {integer} - {timestamp}")
+        debug_print(f"Received IID id:  {integer} - {timestamp}")
     elif len(data) == 16:
         index, integer, timestamp= struct.unpack("<iiQ", data)
-        debug_print(f"Received IID: {index} - {integer} - {timestamp} ")
+        debug_print(f"Received IID iid: {index} - {integer} - {timestamp} ")
         
         
 def only_guest_id(data):
     if len(data) == 8:
         index, integer = struct.unpack("<ii", data)
-        if integer < 0:
+        if index < 0:
             return data
         else:
+            print(f"yo {data} {index}")
             return struct.pack("<ii", -index, integer)
     elif len(data) == 16:
         index, integer, timestamp= struct.unpack("<iiQ", data)
-        if integer < 0:
+        if index < 0:
             return data
         else:
+            print(f"ydo {data} {index}")
             return struct.pack("<iiQ", -index, integer, timestamp)
 
 async def relay_to_clients(data):
@@ -290,11 +299,11 @@ async def relay_to_clients(data):
         except Exception as e:
             debug_print(f"Error sending to client: {e}")
             disconnected_clients.add(client)
-    
-    # Clean up closed or problematic clients
-    for client in disconnected_clients:
-        clients.discard(client)
-        debug_print(f"Removed disconnected client: {client}")
+    # # Clean up closed or problematic clients
+    # for client in disconnected_clients:
+    #     clients.discard(client)
+    #     debug_print(f"Removed disconnected client: {client}")
+
 
 async def ws_handler(websocket, path):
     """Handles new WebSocket connections, handshakes, and messages."""
@@ -325,6 +334,8 @@ async def ws_handler(websocket, path):
                         if not(address in allowed_public_addressses):
                             await websocket.send(f"Client is not in the allowed list: {address}")
                             await websocket.close()
+                        
+                        clients.add(websocket)
                         
                     else:
                         debug_print(f"Invalid signature from client: {address}")
