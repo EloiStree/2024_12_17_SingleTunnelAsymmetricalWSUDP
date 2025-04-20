@@ -33,29 +33,26 @@ openssl pkcs12 -export -out ssl_window.pfx -inkey ssl_key.pem -in ssl_cert.pem -
 openssl pkcs12 -info -in ssl_window.pfx -passin pass:HelloWorld
 """
 
-bool_require_ssl_certification = True
+bool_require_ssl_certification = False
 if bool_require_ssl_certification:
     certification_file_path = os.path.join(os.path.dirname(__file__), "ssl_cert.pem")
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_context.check_hostname = False
     ssl_context.load_verify_locations(certification_file_path) 
+    
+    # read text file
+    string_certif_in_file = ""
+    print (f"SSL certification file path: {certification_file_path}")
+
+    with open(certification_file_path, "r") as file:
+        string_certif_in_file = file.read()
+
+    print(f"Certification in file: {string_certif_in_file}")
 else: 
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
     
-
-
-
-print (f"SSL certification file path: {certification_file_path}")
-# read text file
-string_certif_in_file = ""
-
-with open(certification_file_path, "r") as file:
-    string_certif_in_file = file.read()
-
-print(f"Certification in file: {string_certif_in_file}")
-
 
 LOCAL_PORT =[3615,7000,7073]
 
