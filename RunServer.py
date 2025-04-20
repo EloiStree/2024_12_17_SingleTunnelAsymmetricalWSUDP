@@ -83,6 +83,18 @@ sudo systemctl restart stream_game_tunnel_ws.timer
 sudo systemctl list-timers | grep stream_game_tunnel_ws
 """
 
+
+import os
+
+bool_is_in_terminal = os.isatty(0) and os.isatty(1) and os.isatty(2)
+if bool_is_in_terminal:
+    print("Running in terminal")
+    # stop service
+    os.system("sudo systemctl stop stream_game_tunnel_ws.service")
+    os.system("sudo systemctl stop stream_game_tunnel_ws.timer")
+
+
+
 # openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem
 path_ssh_certificat="/token/ssl_cert.pem"
 path_ssh_private_key="/token/ssl_key.pem"
@@ -134,7 +146,8 @@ websocket_server_ip_wss="0.0.0.0"
 
 
 
-allowed_public_addressses=["0x1Be31A94361a391bBaFB2a4CCd704F57dc04d4bb"]
+allowed_public_addressses=[
+    "0x4BD897D9F5aB5E886793CD9e89bB35133C7675fd","0x1Be31A94361a391bBaFB2a4CCd704F57dc04d4bb", "0x1907ccE6CAfE3bC33AF187C226182F886bC8bfF8"]
 
 clients = set()
 only_negative_index_allowed=True
@@ -329,6 +342,7 @@ async def ws_handler(websocket, path):
                     signature = t[2]
                     if is_message_signed_from_params(message, address, signature):
                         bool_signed_received_and_validate=True
+                        print(f"HELLO {address}")
                         await websocket.send(f"HELLO {address}")
                         
                         if not(address in allowed_public_addressses):
