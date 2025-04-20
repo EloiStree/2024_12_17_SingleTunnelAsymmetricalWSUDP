@@ -2,6 +2,11 @@
 
 # 2024_12_17_SingleTunnelMegaMaskWSUDP
 
+```
+pip install web3 websockets
+```
+
+
 This project uses **Ethereum** and **MetaMask** to establish a Python-based tunnel between a server and a client, with added protection and encryption. The main code is designed to facilitate secure communication over WebSocket UDP.
 
 For an RSA-based version of a similar tunnel, see [2024_06_21_SingleTunnelRsaWSUDP](https://github.com/EloiStree/2024_06_21_SingleTunnelRsaWSUDP).
